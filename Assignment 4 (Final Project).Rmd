@@ -1,0 +1,191 @@
+---
+title: "Assignment 4 - Module 4"
+author: "Kazeem Abiodun Folarin"
+date: "5/8/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+```
+
+
+## Business Problem
+
+### Context
+
+Kazo Manufacturing, a Maritime Construction company, is attempting to bring the world's first all-electric cruiseliner to the market. Instead of using a conventional diesel engine to power its twin propellers, the company is considering the prospect of using Lithium-Ion batteries and solar panels to serve as its main source of power. Its design will be catered to families that want to spend some time with their children on vacation during peak seasons on the East Coast. The Environment, Health & Safety (EHS) team needs to design its layout to accommodate the safe departure of its crew and members in the event of an imminent wreckage
+
+### Key questions
+
+The Lead Data Scientist has tasked you producing insights to the following questions,
+
+1. Are families with more children at a higher risk of perishing?
+3. What factors of cabin members can be trusted to influence the direction of their survivability?
+
+
+### Choice of data set
+After comparing the current schematic of the ship with data sets of known emergencies involving cruiseliners at sea, you conclude that the accommodation layout and ship design closely resembles that of the titanic. However, modern regulation requires all cabins, regardless of status, to be an equal distance away from lifeboats. After much research, you settle on a data-set of cabin members that survived the wreckage with features that could help provide the kind of insights the lead requires.
+
+```{r message=FALSE}
+
+# dependencies
+library(ggplot2)
+library(gridExtra)
+```
+
+\pagebreak
+## Data Ingestion
+
+### Summary
+The data set contains 887 observations of guests onboard the Titanic. It presents features that describe their cabin class, name, sex, age, whether they had siblings or parents, how much their fare was, and whether they survived the wreckage.
+
+
+```{r}
+
+# data paths
+path_titanic_data <- "C:/Users/pc/Downloads/raw_titanic.csv"
+
+# read titanic data-set
+df_raw_titanic <- read.csv(path_titanic_data, stringsAsFactors = FALSE)
+summary(df_raw_titanic)
+
+```
+
+\pagebreak
+## Data Preperation
+
+### Feature selection
+The following features are to be excluded from the data set,
+
+1. Pclass - Access to critical safety systems is the same for all cabin and crew, regardless of whether they're on the high or low end of luxury.
+2. Name - We are not required to produce recommendations based on unstructured data.
+
+### Data cleaning
+Excluding these features produces the data set to be used for further statistical analysis to extract insights that align with key questions.
+
+```{r}
+
+# rename columns
+names(df_raw_titanic)[names(df_raw_titanic) == "Siblings/Spouses Aboard"] <- "Siblings_Spouses_Aboard"
+names(df_raw_titanic)[names(df_raw_titanic) == "Parents/Children  Aboard"] <- "Parents_Children_Aboard"
+
+# define features required
+features_required <- c('Survived', 'Sex', 'Age', 'Siblings.Spouses.Aboard', 'Parents.Children.Aboard', 'Fare')
+df_source <- df_raw_titanic[features_required]
+
+# data frame prep
+df <- data.frame(df_source)
+
+# data type conversions
+df$Sex <- as.factor(df$Sex)
+df$Survived <- as.factor(df$Survived)
+
+str(df)
+
+```
+
+
+\pagebreak
+## Data Analysis
+
+The distribution of survivability by age hints that,
+
+1. Older adults could be at a higher risk of fatality.
+2. Young adults could be prone to a lower expectation of survival.
+```{r message=FALSE}
+
+age_not_survived <- ggplot(
+  subset(df, Survived == 0), 
+  aes(x=Age)) +
+  geom_histogram(position="dodge", alpha=0.9) +
+  ggtitle("Fatalities by age") + 
+  theme_classic()
+
+age_survived <- ggplot(
+  subset(df, Survived == 1), 
+  aes(x=Age)) +
+  geom_histogram(position="dodge", alpha=0.9) +
+  ggtitle("Survivors by age") + 
+  theme_classic()
+
+grid.arrange(age_not_survived, age_survived, nrow=1)
+
+```
+
+Further analysis of survivability as a function of their ticket fares suggests that,
+
+1. Those that pay significantly higher fares may be biased to an increased chance of survival.
+2. Those that pay significantly lower fares could be susceptible to a higher chance of fatalities.
+
+```{r message=FALSE}
+
+fare_not_survived <- ggplot(
+  subset(df, Survived == 0), 
+  aes(x=Fare)) +
+  geom_histogram(position="dodge", alpha=0.9) +
+  ggtitle("Fatalities by ticket fares") +
+  theme_classic()
+
+fare_survived <- ggplot(
+  subset(df, Survived == 1), 
+  aes(x=Fare)) +
+  geom_histogram(position="dodge", alpha=0.9) +
+  ggtitle("Survivors by ticket fares") +
+  theme_classic()
+
+grid.arrange(fare_not_survived, fare_survived, nrow=1)
+
+```
+
+\pagebreak
+## Data Modeling
+The analysis conducted above is merely descriptive, and cannot provide the kind of insights that incorporate multiple explanatory factors. Therefore, a linear regression model was developed to determine statistically significant features that impact wreckage survivability.
+
+Note,
+
+1. The p-values indicate the level of significance. The accepted threshold is assumed to be less than 5%.
+2. The coefficients of each feature indicate the direction of survivability for either increases or decreases of the target feature, Survived. 
+
+```{r}
+
+# data type conversions
+df$Survived <- as.integer(df$Survived)
+df$Survived <- df$Survived - 1
+df$Sex <- as.character(df$Sex)
+
+# replace values and perform final conversions
+df$Sex[df$Sex == "male"] <- 1
+df$Sex[df$Sex == "female"] <- 0
+df$Sex <- as.integer(df$Sex)
+
+# perform and print the regression statistics
+summary(lm(Survived ~ ., df))
+
+
+```
+
+\pagebreak
+### Model Insights
+Based on the findings of the linear regression model,
+
+1. The sex, age, ticket fair whether a crew member has siblings or spouses on board statistically affect the survivability of the crew member.
+2. Males are more likely to survive than females.
+3. Younger crew members are likely to survive.
+4. Members that pay a higher ticket fare are more likely to survive.
+
+### Discussion
+
+Based on the above, the EHS team will inculcate the findings in the design to have a safe layout that accomodates; older ones by creating a Standard operating procedure (SOP) which allows crew members with aged ones or couples to have easy access to emergency exit and also making sure there are life boats at all end to accommodate all passengers. THe SOP should ensure that at no time should the number of passengers exceed the number that can accommodated on the life boats.
+
+\pagebreak
+## References
+
+1. **Titanic data-set**, <https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv>
